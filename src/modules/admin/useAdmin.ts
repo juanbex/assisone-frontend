@@ -7,7 +7,14 @@ export interface AppUser {
   userRoles: { role: { id: string; name: string } }[]
 }
 
-export interface Role { id: string; name: string; description: string | null; isSystem: boolean }
+export interface Role {
+  id: string; name: string; description: string | null; isSystem: boolean
+}
+
+export interface Tenant {
+  id: string; name: string; slug: string; config: any; createdAt: string
+  _count: { users: number; services: number }
+}
 
 export function useUsers() {
   return useQuery<{ data: AppUser[] }>({
@@ -20,6 +27,13 @@ export function useRoles() {
   return useQuery<{ data: Role[] }>({
     queryKey: ['admin-roles'],
     queryFn: async () => { const { data } = await api.get('/api/admin/roles'); return data },
+  })
+}
+
+export function useTenants() {
+  return useQuery<{ data: Tenant[] }>({
+    queryKey: ['admin-tenants'],
+    queryFn: async () => { const { data } = await api.get('/api/admin/tenants'); return data },
   })
 }
 
@@ -47,10 +61,34 @@ export function useCreateRole() {
   })
 }
 
+export function useDeleteRole() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => { await api.delete(`/api/admin/roles/${id}`) },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-roles'] }),
+  })
+}
+
 export function useSeedRoles() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async () => { const { data } = await api.post('/api/admin/seed-roles', {}); return data },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-roles'] }),
+  })
+}
+
+export function useCreateTenant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: any) => { const { data } = await api.post('/api/admin/tenants', body); return data },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-tenants'] }),
+  })
+}
+
+export function useUpdateTenant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...body }: any) => { const { data } = await api.patch(`/api/admin/tenants/${id}`, body); return data },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-tenants'] }),
   })
 }
