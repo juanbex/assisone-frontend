@@ -3,6 +3,9 @@ import LoginPage from './modules/auth/LoginPage'
 import ServicesPage from './modules/services/ServicesPage'
 import ServiceDetailPage from './modules/services/ServiceDetailPage'
 import NewServicePage from './modules/services/NewServicePage'
+import ProvidersPage from './modules/providers/ProvidersPage'
+import ProviderDetailPage from './modules/providers/ProviderDetailPage'
+import ProviderFormPage from './modules/providers/ProviderFormPage'
 import UsersPage from './modules/admin/UsersPage'
 import RolesPage from './modules/admin/RolesPage'
 import TenantsPage from './modules/admin/TenantsPage'
@@ -26,20 +29,31 @@ const Placeholder = ({ title }: { title: string }) => (
 export default function App() {
   return (
     <Routes>
-      <Route path="/login"          element={<LoginPage />} />
-      <Route path="/"               element={<Navigate to="/services" replace />} />
-      <Route path="/services"       element={<PrivatePage><ServicesPage /></PrivatePage>} />
-      <Route path="/services/new"   element={<PrivatePage><NewServicePage /></PrivatePage>} />
-      <Route path="/services/:id"   element={<PrivatePage><ServiceDetailPage /></PrivatePage>} />
-      <Route path="/dashboard"      element={<PrivatePage><ServicesPage /></PrivatePage>} />
-      <Route path="/providers"      element={<PrivatePage><Placeholder title="Proveedores" /></PrivatePage>} />
-      <Route path="/clients"        element={<PrivatePage><Placeholder title="Clientes" /></PrivatePage>} />
-      <Route path="/appointments"   element={<PrivatePage><Placeholder title="Citas médicas" /></PrivatePage>} />
-      <Route path="/reports"        element={<PrivatePage><Placeholder title="Reportes" /></PrivatePage>} />
-      <Route path="/admin"          element={<Navigate to="/admin/users" replace />} />
-      <Route path="/admin/users"    element={<PrivatePage><UsersPage /></PrivatePage>} />
-      <Route path="/admin/roles"    element={<PrivatePage><RolesPage /></PrivatePage>} />
-      <Route path="/admin/tenants"  element={<PrivatePage><TenantsPage /></PrivatePage>} />
+      <Route path="/login"              element={<LoginPage />} />
+      <Route path="/"                   element={<Navigate to="/services" replace />} />
+
+      {/* Servicios */}
+      <Route path="/services"           element={<PrivatePage><ServicesPage /></PrivatePage>} />
+      <Route path="/services/new"       element={<PrivatePage><NewServicePage /></PrivatePage>} />
+      <Route path="/services/:id"       element={<PrivatePage><ServiceDetailPage /></PrivatePage>} />
+      <Route path="/dashboard"          element={<PrivatePage><ServicesPage /></PrivatePage>} />
+
+      {/* Proveedores */}
+      <Route path="/providers"          element={<PrivatePage><ProvidersPage /></PrivatePage>} />
+      <Route path="/providers/new"      element={<PrivatePage><ProviderFormPage /></PrivatePage>} />
+      <Route path="/providers/:id"      element={<PrivatePage><ProviderDetailPage /></PrivatePage>} />
+      <Route path="/providers/:id/edit" element={<PrivatePage><ProviderFormPage /></PrivatePage>} />
+
+      {/* Otros */}
+      <Route path="/clients"            element={<PrivatePage><Placeholder title="Clientes" /></PrivatePage>} />
+      <Route path="/appointments"       element={<PrivatePage><Placeholder title="Citas médicas" /></PrivatePage>} />
+      <Route path="/reports"            element={<PrivatePage><Placeholder title="Reportes" /></PrivatePage>} />
+
+      {/* Admin */}
+      <Route path="/admin"              element={<Navigate to="/admin/users" replace />} />
+      <Route path="/admin/users"        element={<PrivatePage><UsersPage /></PrivatePage>} />
+      <Route path="/admin/roles"        element={<PrivatePage><RolesPage /></PrivatePage>} />
+      <Route path="/admin/tenants"      element={<PrivatePage><TenantsPage /></PrivatePage>} />
     </Routes>
   )
 }
