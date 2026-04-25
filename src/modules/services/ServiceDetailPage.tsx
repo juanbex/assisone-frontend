@@ -72,7 +72,8 @@ export default function ServiceDetailPage() {
           </p>
         </div>
         {nextStates.length > 0 && (
-          <button onClick={() => setShowStatusChange(!showStatusChange)} style={{ padding: '8px 18px', background: '#0A1F44', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={() => setShowStatusChange(!showStatusChange)}
+            style={{ padding: '8px 18px', background: '#0A1F44', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             Cambiar estado
           </button>
         )}
@@ -102,48 +103,50 @@ export default function ServiceDetailPage() {
             style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #dde3ef', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'Inter, system-ui, sans-serif' }}
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button onClick={handleStatusChange} disabled={!nextStatus || isPending} style={{ padding: '7px 18px', background: '#00A9E0', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            <button onClick={handleStatusChange} disabled={!nextStatus || isPending}
+              style={{ padding: '7px 18px', background: '#00A9E0', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               {isPending ? 'Guardando...' : 'Confirmar'}
             </button>
-            <button onClick={() => setShowStatusChange(false)} style={{ padding: '7px 14px', background: 'transparent', border: '1.5px solid #dde3ef', borderRadius: 6, fontSize: 13, cursor: 'pointer', color: '#607090' }}>
+            <button onClick={() => setShowStatusChange(false)}
+              style={{ padding: '7px 14px', background: 'transparent', border: '1.5px solid #dde3ef', borderRadius: 6, fontSize: 13, cursor: 'pointer', color: '#607090' }}>
               Cancelar
             </button>
           </div>
         </div>
       )}
 
-      {/* Cards grid */}
+      {/* Info cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 20 }}>
         <InfoCard title="Cliente">
-          <Row label="Nombre" value={s.client.name} />
+          <Row label="Nombre"   value={s.client.name} />
           <Row label="Teléfono" value={s.client.phone} />
-          <Row label="Póliza" value={s.client.policyNumber ?? '—'} />
+          <Row label="Póliza"   value={s.client.policyNumber ?? '—'} />
         </InfoCard>
         <InfoCard title="Servicio">
-          <Row label="Tipo" value={s.serviceType.name} />
+          <Row label="Tipo"      value={s.serviceType.name} />
           <Row label="Categoría" value={s.serviceType.category.name} />
           <Row label="Ubicación" value={s.location?.address ?? '—'} />
           {s.notes && <Row label="Notas" value={s.notes} />}
         </InfoCard>
         <InfoCard title="Agentes">
           <Row label="Front" value={s.frontAgent?.name ?? '—'} />
-          <Row label="Back" value={s.backAgent?.name ?? '—'} />
-          {s.assignedAt && <Row label="Asignado" value={new Date(s.assignedAt).toLocaleString('es-CO')} />}
+          <Row label="Back"  value={s.backAgent?.name ?? '—'} />
+          {s.assignedAt  && <Row label="Asignado"   value={new Date(s.assignedAt).toLocaleString('es-CO')} />}
           {s.completedAt && <Row label="Finalizado" value={new Date(s.completedAt).toLocaleString('es-CO')} />}
         </InfoCard>
       </div>
 
-      {/* Events timeline */}
+      {/* Timeline */}
       {s.events && s.events.length > 0 && (
         <SectionCard title="Timeline del servicio">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {s.events.map((ev: any, i: number) => (
-              <div key={ev.id} style={{ display: 'flex', gap: 12, paddingBottom: 16, position: 'relative' }}>
+              <div key={ev.id} style={{ display: 'flex', gap: 12, paddingBottom: 16 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#00A9E0', flexShrink: 0, marginTop: 3 }} />
                   {i < s.events!.length - 1 && <div style={{ width: 2, flex: 1, background: '#dde3ef', marginTop: 4 }} />}
                 </div>
-                <div style={{ flex: 1, paddingBottom: 4 }}>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: '#0A1F44', textTransform: 'capitalize' }}>{ev.eventType.replace('_', ' ')}</div>
                   {ev.payload?.notes && <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>{ev.payload.notes}</div>}
                   <div style={{ fontSize: 11, color: '#adb5c7', marginTop: 2 }}>{new Date(ev.createdAt).toLocaleString('es-CO')}</div>
@@ -163,7 +166,7 @@ export default function ServiceDetailPage() {
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#0A1F44' }}>{a.provider.name}</div>
                 <div style={{ fontSize: 11, color: '#607090' }}>{a.provider.whatsapp} · {a.provider.type}</div>
               </div>
-              <span style={{ ...badgeStyle, ...BADGE_COLORS[a.status] ?? {} }}>{a.status}</span>
+              <span style={{ ...badgeStyle, ...(BADGE_COLORS[a.status] ?? {}) }}>{a.status}</span>
             </div>
           ))}
         </SectionCard>
@@ -175,7 +178,7 @@ export default function ServiceDetailPage() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {s.evidences.map((ev: any) => (
               <a key={ev.id} href={ev.s3Url} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'block', width: 80, height: 80, background: '#f1f5f9', borderRadius: 8, border: '1px solid #dde3ef', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#607090' }}>
+                style={{ width: 80, height: 80, background: '#f1f5f9', borderRadius: 8, border: '1px solid #dde3ef', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#607090' }}>
                 foto
               </a>
             ))}
