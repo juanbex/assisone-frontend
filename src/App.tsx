@@ -4,6 +4,8 @@ import ServicesPage from './modules/services/ServicesPage'
 import ServiceDetailPage from './modules/services/ServiceDetailPage'
 import NewServicePage from './modules/services/NewServicePage'
 import UsersPage from './modules/admin/UsersPage'
+import RolesPage from './modules/admin/RolesPage'
+import TenantsPage from './modules/admin/TenantsPage'
 import AppShell from './shared/components/AppShell'
 import { useAuthStore } from './shared/stores/auth.store'
 import './shared/theme.css'
@@ -34,10 +36,10 @@ export default function App() {
       <Route path="/clients"        element={<PrivatePage><Placeholder title="Clientes" /></PrivatePage>} />
       <Route path="/appointments"   element={<PrivatePage><Placeholder title="Citas médicas" /></PrivatePage>} />
       <Route path="/reports"        element={<PrivatePage><Placeholder title="Reportes" /></PrivatePage>} />
-      <Route path="/admin/users"    element={<PrivatePage><UsersPage /></PrivatePage>} />
-      <Route path="/admin/roles"    element={<PrivatePage><Placeholder title="Roles y permisos" /></PrivatePage>} />
-      <Route path="/admin/tenants"  element={<PrivatePage><Placeholder title="Tenants" /></PrivatePage>} />
       <Route path="/admin"          element={<Navigate to="/admin/users" replace />} />
+      <Route path="/admin/users"    element={<PrivatePage><UsersPage /></PrivatePage>} />
+      <Route path="/admin/roles"    element={<PrivatePage><RolesPage /></PrivatePage>} />
+      <Route path="/admin/tenants"  element={<PrivatePage><TenantsPage /></PrivatePage>} />
     </Routes>
   )
 }
