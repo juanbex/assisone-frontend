@@ -2,21 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/client'
 
 export interface Service {
-  id: string
-  status: string
-  notes: string | null
-  location: any
-  createdAt: string
-  assignedAt: string | null
-  completedAt: string | null
+  id: string; status: string; notes: string | null; location: any
+  createdAt: string; assignedAt: string | null; completedAt: string | null
   client: { name: string; policyNumber: string | null; phone: string; email?: string }
   serviceType: { name: string; category: { name: string } }
   frontAgent: { id: string; name: string; email: string } | null
   backAgent:  { id: string; name: string; email: string } | null
-  assignments?: any[]
-  events?: any[]
-  evidences?: any[]
-  appointments?: any[]
+  assignments?: any[]; events?: any[]; evidences?: any[]; appointments?: any[]
 }
 
 export interface ServicesResponse { data: Service[]; total: number; page: number; limit: number }
@@ -49,7 +41,8 @@ export function useService(id: string) {
   return useQuery<{ data: Service }>({
     queryKey: ['service', id],
     queryFn: async () => { const { data } = await api.get(`/api/services/${id}`); return data },
-    enabled: !!id,
+    enabled:         !!id,
+    refetchInterval: 15_000, // ← refetch cada 15s para ver ETA y cambios de estado
   })
 }
 
