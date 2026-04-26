@@ -1,8 +1,16 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useCreateService, useServiceTypes } from './useServices'
 
-const CATEGORIES = ['auto', 'hogar', 'medico']
+const DURATION_OPTIONS = [
+  { value: 30,  label: '30 minutos' },
+  { value: 45,  label: '45 minutos' },
+  { value: 60,  label: '1 hora' },
+  { value: 90,  label: '1 hora 30 min' },
+  { value: 120, label: '2 horas' },
+  { value: 180, label: '3 horas' },
+  { value: 240, label: '4 horas o más' },
+]
 
 export default function NewServicePage() {
   const navigate = useNavigate()
@@ -12,7 +20,7 @@ export default function NewServicePage() {
 
   const [form, setForm] = useState({
     clientName: '', clientPhone: '', clientPolicyNumber: '',
-    serviceTypeId: '', address: '', notes: '',
+    serviceTypeId: '', address: '', notes: '', durationMinutes: 60,
   })
   const [category, setCategory] = useState('')
 
@@ -26,12 +34,12 @@ export default function NewServicePage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     createService({
-      clientName:        form.clientName,
-      clientPhone:       form.clientPhone,
+      clientName:         form.clientName,
+      clientPhone:        form.clientPhone,
       clientPolicyNumber: form.clientPolicyNumber || undefined,
-      serviceTypeId:     form.serviceTypeId,
-      location:          { address: form.address },
-      notes:             form.notes || undefined,
+      serviceTypeId:      form.serviceTypeId,
+      location:           { address: form.address, durationMinutes: parseInt(String(form.durationMinutes)) },
+      notes:              form.notes || undefined,
     }, {
       onSuccess: (data: any) => navigate(`/services/${data.data.id}`),
     })
@@ -42,7 +50,6 @@ export default function NewServicePage() {
       <button onClick={() => navigate('/services')} style={{ background: 'none', border: 'none', color: '#00A9E0', cursor: 'pointer', fontSize: 13, padding: 0, marginBottom: 12 }}>
         ← Volver a bandeja
       </button>
-
       <h1 style={{ margin: '0 0 4px', fontSize: '1.25rem', fontWeight: 700, color: '#0A1F44', borderBottom: '3px solid #00A9E0', display: 'inline-block', paddingBottom: 5 }}>
         Nuevo servicio
       </h1>
@@ -51,14 +58,13 @@ export default function NewServicePage() {
       </p>
 
       <form onSubmit={handleSubmit}>
-
         {/* Cliente */}
         <Section title="Datos del asegurado">
           <Row2>
             <Field label="Nombre completo *">
               <input value={form.clientName} onChange={set('clientName')} required placeholder="Carlos Pérez" style={inp} />
             </Field>
-            <Field label="Teléfono *">
+            <Field label="Teléfono (WhatsApp) *">
               <input value={form.clientPhone} onChange={set('clientPhone')} required placeholder="3001234567" style={inp} />
             </Field>
           </Row2>
@@ -87,17 +93,22 @@ export default function NewServicePage() {
               </select>
             </Field>
           </Row2>
-          {filteredTypes.length === 0 && (
-            <p style={{ fontSize: 12, color: '#d97706', margin: '4px 0' }}>
-              No hay tipos de servicio registrados. Crea uno en Admin → Tenants primero.
-            </p>
-          )}
         </Section>
 
-        {/* Ubicación */}
-        <Section title="Ubicación del incidente">
-          <Field label="Dirección *">
+        {/* Ubicación y duración */}
+        <Section title="Ubicación y tiempo de prestación">
+          <Field label="Dirección del incidente *">
             <input value={form.address} onChange={set('address')} required placeholder="Calle 80 con Av. Boyacá, Bogotá" style={inp} />
+          </Field>
+          <Field label="Tiempo estimado de prestación del servicio *">
+            <select value={form.durationMinutes} onChange={e => setForm(f => ({ ...f, durationMinutes: parseInt(e.target.value) }))} style={inp}>
+              {DURATION_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#607090' }}>
+              Tiempo estimado que tarda el servicio en prestarse una vez el técnico llega al sitio.
+            </p>
           </Field>
           <Field label="Notas adicionales">
             <textarea value={form.notes} onChange={set('notes')} rows={3}
