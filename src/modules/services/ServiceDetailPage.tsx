@@ -50,6 +50,9 @@ export default function ServiceDetailPage() {
   const s = data.data
   const badge = STATUS_BADGE[s.status] ?? { bg: '#f1f5f9', color: '#475569' }
   const nextStates = STATUS_FLOW[s.status] ?? []
+  const address = s.location?.address ?? ''
+  const mapUrl = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : null
+  const acceptedAssignment = s.assignments?.find((a: any) => a.status === 'accepted')
 
   const handleStatusChange = () => {
     if (!nextStatus) return
@@ -66,16 +69,21 @@ export default function ServiceDetailPage() {
           <button onClick={() => navigate('/services')} style={{ background: 'none', border: 'none', color: '#00A9E0', cursor: 'pointer', fontSize: 13, padding: 0, marginBottom: 8 }}>
             ← Volver a bandeja
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#0A1F44' }}>
               Servicio #{s.id.slice(0, 8).toUpperCase()}
             </h1>
             <span style={{ ...badgeStyle, background: badge.bg, color: badge.color }}>
               {STATUS_LABELS[s.status]}
             </span>
+            {acceptedAssignment?.etaMinutes && (
+              <span style={{ ...badgeStyle, background: '#e0f6fd', color: '#0088b8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                ⏱ ETA: {acceptedAssignment.etaMinutes} min
+              </span>
+            )}
           </div>
           <p style={{ margin: '4px 0 0', fontSize: 12, color: '#607090' }}>
-            Creado {new Date(s.createdAt).toLocaleString('es-CO')} · {s.serviceType.category.name}
+            Creado {new Date(s.createdAt).toLocaleString('es-CO')} · {s.serviceType?.category?.name ?? '—'}
           </p>
         </div>
         {nextStates.length > 0 && (
@@ -120,19 +128,33 @@ export default function ServiceDetailPage() {
       {/* Info cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 20 }}>
         <InfoCard title="Cliente">
-          <Row label="Nombre"   value={s.client.name} />
-          <Row label="Teléfono" value={s.client.phone} />
-          <Row label="Póliza"   value={s.client.policyNumber ?? '—'} />
+          <Row label="Nombre"   value={s.client?.name ?? '—'} />
+          <Row label="Teléfono" value={s.client?.phone ?? '—'} />
+          <Row label="Póliza"   value={s.client?.policyNumber ?? '—'} />
         </InfoCard>
         <InfoCard title="Servicio">
-          <Row label="Tipo"      value={s.serviceType.name} />
-          <Row label="Categoría" value={s.serviceType.category.name} />
-          <Row label="Ubicación" value={s.location?.address ?? '—'} />
+          <Row label="Tipo"      value={s.serviceType?.name ?? '—'} />
+          <Row label="Categoría" value={s.serviceType?.category?.name ?? '—'} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f1f5f9', gap: 12, alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: '#607090' }}>Ubicación</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#0A1F44', textAlign: 'right' }}>{address || '—'}</span>
+              {mapUrl && (
+                <a href={mapUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: 11, color: '#00A9E0', textDecoration: 'none', fontWeight: 600, whiteSpace: 'nowrap', border: '1px solid #00A9E040', borderRadius: 4, padding: '1px 6px' }}>
+                  🗺 Ver
+                </a>
+              )}
+            </div>
+          </div>
           {s.notes && <Row label="Notas" value={s.notes} />}
         </InfoCard>
         <InfoCard title="Agentes">
           <Row label="Front" value={s.frontAgent?.name ?? '—'} />
           <Row label="Back"  value={s.backAgent?.name ?? '—'} />
+          {acceptedAssignment?.etaMinutes && (
+            <Row label="⏱ ETA proveedor" value={`${acceptedAssignment.etaMinutes} minutos`} />
+          )}
           {s.assignedAt  && <Row label="Asignado"   value={new Date(s.assignedAt).toLocaleString('es-CO')} />}
           {s.completedAt && <Row label="Finalizado" value={new Date(s.completedAt).toLocaleString('es-CO')} />}
         </InfoCard>
@@ -141,7 +163,7 @@ export default function ServiceDetailPage() {
       {/* Timeline */}
       {s.events && s.events.length > 0 && (
         <SectionCard title="Timeline del servicio">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             {s.events.map((ev: any, i: number) => (
               <div key={ev.id} style={{ display: 'flex', gap: 12, paddingBottom: 16 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -155,9 +177,10 @@ export default function ServiceDetailPage() {
                   {ev.payload?.notes && <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>{ev.payload.notes}</div>}
                   {ev.payload?.reason && <div style={{ fontSize: 12, color: '#dc2626', marginTop: 2 }}>{ev.payload.reason}</div>}
                   {ev.payload?.providersContacted !== undefined && (
-                    <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>
-                      {ev.payload.providersContacted} proveedor(es) contactado(s)
-                    </div>
+                    <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>{ev.payload.providersContacted} proveedor(es) contactado(s)</div>
+                  )}
+                  {ev.payload?.etaMinutes && (
+                    <div style={{ fontSize: 12, color: '#0088b8', marginTop: 2 }}>⏱ ETA: {ev.payload.etaMinutes} minutos</div>
                   )}
                   <div style={{ fontSize: 11, color: '#adb5c7', marginTop: 2 }}>{new Date(ev.createdAt).toLocaleString('es-CO')}</div>
                 </div>
@@ -176,7 +199,10 @@ export default function ServiceDetailPage() {
               <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#0A1F44' }}>{a.provider.name}</div>
-                  <div style={{ fontSize: 11, color: '#607090', marginTop: 2 }}>{a.provider.whatsapp} · {a.provider.type}</div>
+                  <div style={{ fontSize: 11, color: '#607090', marginTop: 2 }}>
+                    {a.provider.whatsapp} · {a.provider.type}
+                    {a.etaMinutes && <span style={{ marginLeft: 8, color: '#0088b8', fontWeight: 600 }}>⏱ {a.etaMinutes} min</span>}
+                  </div>
                 </div>
                 <span style={{ padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: ab.bg, color: ab.color, border: `1px solid ${ab.color}30` }}>
                   {ab.label}
@@ -225,7 +251,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f1f5f9', gap: 12 }}>
-      <span style={{ fontSize: 12, color: '#607090' }}>{label}</span>
+      <span style={{ fontSize: 12, color: '#607090', flexShrink: 0 }}>{label}</span>
       <span style={{ fontSize: 12, fontWeight: 600, color: '#0A1F44', textAlign: 'right' }}>{value}</span>
     </div>
   )
