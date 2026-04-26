@@ -1,14 +1,18 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useProvider, PROVIDER_TYPES, TYPE_CATEGORY_COLOR } from './useProviders'
+import { useProvider, useDeleteProvider, PROVIDER_TYPES, TYPE_CATEGORY_COLOR } from './useProviders'
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pendiente', accepted: 'Aceptado', rejected: 'Rechazado', cancelled: 'Cancelado',
+const ASSIGNMENT_BADGE: Record<string, { bg: string; color: string; label: string }> = {
+  pending:   { bg: '#fef9c3', color: '#854d0e', label: 'Pendiente' },
+  accepted:  { bg: '#d1fae5', color: '#065f46', label: 'Aceptado' },
+  rejected:  { bg: '#fee2e2', color: '#991b1b', label: 'Rechazado' },
+  cancelled: { bg: '#f1f5f9', color: '#475569', label: 'Cancelado' },
 }
 
 export default function ProviderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data, isLoading, isError } = useProvider(id!)
+  const { mutate: deleteProvider, isPending: deleting } = useDeleteProvider()
 
   if (isLoading) return <div style={wrap}><p style={{ color: '#607090' }}>Cargando proveedor...</p></div>
   if (isError || !data?.data) return <div style={wrap}><p style={{ color: '#dc2626' }}>Proveedor no encontrado</p></div>
@@ -20,6 +24,11 @@ export default function ProviderDetailPage() {
   const zones: string[] = p.coverageZones ?? []
   const accepted = p.assignments.filter(a => a.status === 'accepted').length
   const rate = p.assignments.length > 0 ? Math.round((accepted / p.assignments.length) * 100) : 0
+
+  const handleDelete = () => {
+    if (!confirm(`¿Eliminar a "${p.name}"? Esta acción no se puede deshacer.`)) return
+    deleteProvider(p.id, { onSuccess: () => navigate('/providers') })
+  }
 
   return (
     <div style={wrap}>
@@ -41,27 +50,35 @@ export default function ProviderDetailPage() {
             </div>
           </div>
         </div>
-        <button onClick={() => navigate(`/providers/${id}/edit`)}
-          style={{ padding: '8px 18px', background: '#0A1F44', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          Editar
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => navigate(`/providers/${id}/edit`)}
+            style={{ padding: '8px 18px', background: '#0A1F44', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            Editar
+          </button>
+          <button onClick={handleDelete} disabled={deleting}
+            style={{ padding: '8px 18px', background: 'transparent', color: '#dc2626', border: '1.5px solid #dc2626', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            {deleting ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
       </div>
 
-      {/* Info cards */}
+      {/* Stats cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
         <InfoCard title="Contacto">
-          <Row label="WhatsApp" value={p.whatsapp} />
+          <Row label="WhatsApp"  value={p.whatsapp} />
           <Row label="Registrado" value={new Date(p.createdAt).toLocaleDateString('es-CO')} />
         </InfoCard>
         <InfoCard title="Cobertura">
           {zones.length === 0
             ? <p style={{ margin: 0, fontSize: 12, color: '#adb5c7' }}>Sin zonas configuradas</p>
-            : zones.map(z => <div key={z} style={{ fontSize: 12, color: '#0A1F44', padding: '3px 0', borderBottom: '1px solid #f1f5f9' }}>{z}</div>)
+            : zones.map(z => (
+              <div key={z} style={{ fontSize: 12, color: '#0A1F44', padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>{z}</div>
+            ))
           }
         </InfoCard>
         <InfoCard title="Estadísticas">
           <Row label="Total asignaciones" value={String(p.assignments.length)} />
-          <Row label="Aceptadas" value={String(accepted)} />
+          <Row label="Aceptadas"          value={String(accepted)} />
           <Row label="Tasa de aceptación" value={`${rate}%`} />
         </InfoCard>
       </div>
@@ -83,24 +100,23 @@ export default function ProviderDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {p.assignments.map((a, i) => (
-                  <tr key={a.id} onClick={() => navigate(`/services/${a.service.id}`)}
-                    style={{ borderTop: '1px solid #dde3ef', cursor: 'pointer', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
-                    <td style={td}><span style={{ fontWeight: 700, color: '#00A9E0', fontSize: 11, fontFamily: 'monospace' }}>{a.service.id.slice(0, 8).toUpperCase()}</span></td>
-                    <td style={td}>{a.service.client.name}</td>
-                    <td style={td}>{a.service.serviceType.name}</td>
-                    <td style={td}>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700,
-                        background: a.status === 'accepted' ? '#d1fae5' : a.status === 'rejected' ? '#fee2e2' : '#f1f5f9',
-                        color: a.status === 'accepted' ? '#065f46' : a.status === 'rejected' ? '#991b1b' : '#475569',
-                      }}>
-                        {STATUS_LABELS[a.status] ?? a.status}
-                      </span>
-                    </td>
-                    <td style={{ ...td, color: '#607090', fontSize: 12 }}>{new Date(a.sentAt).toLocaleDateString('es-CO')}</td>
-                  </tr>
-                ))}
+                {p.assignments.map((a, i) => {
+                  const ab = ASSIGNMENT_BADGE[a.status] ?? { bg: '#f1f5f9', color: '#475569', label: a.status }
+                  return (
+                    <tr key={a.id} onClick={() => navigate(`/services/${a.service.id}`)}
+                      style={{ borderTop: '1px solid #dde3ef', cursor: 'pointer', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                      <td style={td}><span style={{ fontWeight: 700, color: '#00A9E0', fontSize: 11, fontFamily: 'monospace' }}>{a.service.id.slice(0, 8).toUpperCase()}</span></td>
+                      <td style={td}>{a.service.client.name}</td>
+                      <td style={td}>{a.service.serviceType.name}</td>
+                      <td style={td}>
+                        <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: ab.bg, color: ab.color }}>
+                          {ab.label}
+                        </span>
+                      </td>
+                      <td style={{ ...td, color: '#607090', fontSize: 12 }}>{new Date(a.sentAt).toLocaleDateString('es-CO')}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )
