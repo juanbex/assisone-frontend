@@ -17,7 +17,7 @@ const STATUS_FLOW: Record<string, string[]> = {
   in_progress:     ['completed', 'cancelled'],
 }
 
-const BADGE_COLORS: Record<string, { bg: string; color: string }> = {
+const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
   received:        { bg: '#dbeafe', color: '#1d4ed8' },
   in_coordination: { bg: '#fef3c7', color: '#92400e' },
   uncoordinated:   { bg: '#fee2e2', color: '#991b1b' },
@@ -26,6 +26,13 @@ const BADGE_COLORS: Record<string, { bg: string; color: string }> = {
   in_progress:     { bg: '#ede9fe', color: '#4c1d95' },
   completed:       { bg: '#f0fdf4', color: '#14532d' },
   cancelled:       { bg: '#f1f5f9', color: '#475569' },
+}
+
+const ASSIGNMENT_BADGE: Record<string, { bg: string; color: string; label: string }> = {
+  pending:   { bg: '#fef9c3', color: '#854d0e', label: 'Pendiente' },
+  accepted:  { bg: '#d1fae5', color: '#065f46', label: 'Aceptado' },
+  rejected:  { bg: '#fee2e2', color: '#991b1b', label: 'Rechazado' },
+  cancelled: { bg: '#f1f5f9', color: '#475569', label: 'Cancelado' },
 }
 
 export default function ServiceDetailPage() {
@@ -41,7 +48,7 @@ export default function ServiceDetailPage() {
   if (isError || !data?.data) return <div style={pageWrap}><p style={{ color: '#dc2626' }}>Servicio no encontrado</p></div>
 
   const s = data.data
-  const badge = BADGE_COLORS[s.status] ?? { bg: '#f1f5f9', color: '#475569' }
+  const badge = STATUS_BADGE[s.status] ?? { bg: '#f1f5f9', color: '#475569' }
   const nextStates = STATUS_FLOW[s.status] ?? []
 
   const handleStatusChange = () => {
@@ -95,13 +102,8 @@ export default function ServiceDetailPage() {
               </button>
             ))}
           </div>
-          <textarea
-            placeholder="Notas (opcional)..."
-            value={statusNotes}
-            onChange={e => setStatusNotes(e.target.value)}
-            rows={2}
-            style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #dde3ef', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'Inter, system-ui, sans-serif' }}
-          />
+          <textarea placeholder="Notas (opcional)..." value={statusNotes} onChange={e => setStatusNotes(e.target.value)} rows={2}
+            style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #dde3ef', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'Inter, system-ui, sans-serif' }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <button onClick={handleStatusChange} disabled={!nextStatus || isPending}
               style={{ padding: '7px 18px', background: '#00A9E0', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
@@ -147,8 +149,16 @@ export default function ServiceDetailPage() {
                   {i < s.events!.length - 1 && <div style={{ width: 2, flex: 1, background: '#dde3ef', marginTop: 4 }} />}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#0A1F44', textTransform: 'capitalize' }}>{ev.eventType.replace('_', ' ')}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#0A1F44', textTransform: 'capitalize' }}>
+                    {ev.eventType.replace(/_/g, ' ')}
+                  </div>
                   {ev.payload?.notes && <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>{ev.payload.notes}</div>}
+                  {ev.payload?.reason && <div style={{ fontSize: 12, color: '#dc2626', marginTop: 2 }}>{ev.payload.reason}</div>}
+                  {ev.payload?.providersContacted !== undefined && (
+                    <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>
+                      {ev.payload.providersContacted} proveedor(es) contactado(s)
+                    </div>
+                  )}
                   <div style={{ fontSize: 11, color: '#adb5c7', marginTop: 2 }}>{new Date(ev.createdAt).toLocaleString('es-CO')}</div>
                 </div>
               </div>
@@ -160,15 +170,20 @@ export default function ServiceDetailPage() {
       {/* Assignments */}
       {s.assignments && s.assignments.length > 0 && (
         <SectionCard title="Proveedores contactados">
-          {s.assignments.map((a: any) => (
-            <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #dde3ef' }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#0A1F44' }}>{a.provider.name}</div>
-                <div style={{ fontSize: 11, color: '#607090' }}>{a.provider.whatsapp} · {a.provider.type}</div>
+          {s.assignments.map((a: any) => {
+            const ab = ASSIGNMENT_BADGE[a.status] ?? { bg: '#f1f5f9', color: '#475569', label: a.status }
+            return (
+              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0A1F44' }}>{a.provider.name}</div>
+                  <div style={{ fontSize: 11, color: '#607090', marginTop: 2 }}>{a.provider.whatsapp} · {a.provider.type}</div>
+                </div>
+                <span style={{ padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: ab.bg, color: ab.color, border: `1px solid ${ab.color}30` }}>
+                  {ab.label}
+                </span>
               </div>
-              <span style={{ ...badgeStyle, ...(BADGE_COLORS[a.status] ?? {}) }}>{a.status}</span>
-            </div>
-          ))}
+            )
+          })}
         </SectionCard>
       )}
 
@@ -210,7 +225,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f1f5f9', gap: 12 }}>
-      <span style={{ fontSize: 12, color: '#607090', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12, color: '#607090' }}>{label}</span>
       <span style={{ fontSize: 12, fontWeight: 600, color: '#0A1F44', textAlign: 'right' }}>{value}</span>
     </div>
   )
