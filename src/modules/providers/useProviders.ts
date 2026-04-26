@@ -2,12 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/client'
 
 export interface Provider {
-  id: string
-  name: string
-  whatsapp: string
-  type: string
-  coverageZones: string[]
-  createdAt: string
+  id: string; name: string; whatsapp: string; type: string
+  coverageZones: string[]; createdAt: string
   _count?: { assignments: number }
 }
 
@@ -24,16 +20,14 @@ export const PROVIDER_TYPES = [
   { value: 'carro-taller',      label: 'Carro taller',      category: 'auto' },
   { value: 'conductor-elegido', label: 'Conductor elegido',  category: 'auto' },
   { value: 'plomeria',          label: 'Plomería',           category: 'hogar' },
-  { value: 'gas',               label: 'Gas domiciliario',  category: 'hogar' },
+  { value: 'gas',               label: 'Gas domiciliario',   category: 'hogar' },
   { value: 'cerrajeria',        label: 'Cerrajería',         category: 'hogar' },
-  { value: 'medico-general',    label: 'Médico general',    category: 'medico' },
-  { value: 'urgencias',         label: 'Urgencias dom.',    category: 'medico' },
+  { value: 'medico-general',    label: 'Médico general',     category: 'medico' },
+  { value: 'urgencias',         label: 'Urgencias dom.',     category: 'medico' },
 ]
 
 export const TYPE_CATEGORY_COLOR: Record<string, string> = {
-  auto:   '#0088b8',
-  hogar:  '#059669',
-  medico: '#7c3aed',
+  auto: '#0088b8', hogar: '#059669', medico: '#7c3aed',
 }
 
 export function useProviders(params: { type?: string; search?: string } = {}) {
@@ -77,5 +71,13 @@ export function useUpdateProvider() {
   return useMutation({
     mutationFn: async ({ id, ...body }: any) => { const { data } = await api.patch(`/api/providers/${id}`, body); return data },
     onSuccess: (_d, vars) => { qc.invalidateQueries({ queryKey: ['providers'] }); qc.invalidateQueries({ queryKey: ['provider', vars.id] }) },
+  })
+}
+
+export function useDeleteProvider() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => { await api.delete(`/api/providers/${id}`) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['providers'] }); qc.invalidateQueries({ queryKey: ['providers-stats'] }) },
   })
 }
