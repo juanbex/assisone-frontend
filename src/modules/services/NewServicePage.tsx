@@ -1,16 +1,6 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useCreateService, useServiceTypes } from './useServices'
-
-const DURATION_OPTIONS = [
-  { value: 30,  label: '30 minutos' },
-  { value: 45,  label: '45 minutos' },
-  { value: 60,  label: '1 hora' },
-  { value: 90,  label: '1 hora 30 min' },
-  { value: 120, label: '2 horas' },
-  { value: 180, label: '3 horas' },
-  { value: 240, label: '4 horas o más' },
-]
 
 export default function NewServicePage() {
   const navigate = useNavigate()
@@ -20,7 +10,7 @@ export default function NewServicePage() {
 
   const [form, setForm] = useState({
     clientName: '', clientPhone: '', clientPolicyNumber: '',
-    serviceTypeId: '', address: '', notes: '', durationMinutes: 60,
+    serviceTypeId: '', address: '', notes: '',
   })
   const [category, setCategory] = useState('')
 
@@ -38,7 +28,7 @@ export default function NewServicePage() {
       clientPhone:        form.clientPhone,
       clientPolicyNumber: form.clientPolicyNumber || undefined,
       serviceTypeId:      form.serviceTypeId,
-      location:           { address: form.address, durationMinutes: parseInt(String(form.durationMinutes)) },
+      location:           { address: form.address },
       notes:              form.notes || undefined,
     }, {
       onSuccess: (data: any) => navigate(`/services/${data.data.id}`),
@@ -58,7 +48,6 @@ export default function NewServicePage() {
       </p>
 
       <form onSubmit={handleSubmit}>
-        {/* Cliente */}
         <Section title="Datos del asegurado">
           <Row2>
             <Field label="Nombre completo *">
@@ -73,7 +62,6 @@ export default function NewServicePage() {
           </Field>
         </Section>
 
-        {/* Servicio */}
         <Section title="Tipo de servicio">
           <Row2>
             <Field label="Categoría">
@@ -95,20 +83,9 @@ export default function NewServicePage() {
           </Row2>
         </Section>
 
-        {/* Ubicación y duración */}
-        <Section title="Ubicación y tiempo de prestación">
-          <Field label="Dirección del incidente *">
+        <Section title="Ubicación del incidente">
+          <Field label="Dirección *">
             <input value={form.address} onChange={set('address')} required placeholder="Calle 80 con Av. Boyacá, Bogotá" style={inp} />
-          </Field>
-          <Field label="Tiempo estimado de prestación del servicio *">
-            <select value={form.durationMinutes} onChange={e => setForm(f => ({ ...f, durationMinutes: parseInt(e.target.value) }))} style={inp}>
-              {DURATION_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#607090' }}>
-              Tiempo estimado que tarda el servicio en prestarse una vez el técnico llega al sitio.
-            </p>
           </Field>
           <Field label="Notas adicionales">
             <textarea value={form.notes} onChange={set('notes')} rows={3}
