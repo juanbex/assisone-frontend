@@ -8,20 +8,16 @@ const NAV = [
   {
     label: 'Servicios', icon: '⊞', path: '/services',
     sub: [
-      { label: 'Bandeja', path: '/services' },
+      { label: 'Bandeja',        path: '/services' },
       { label: 'Nuevo servicio', path: '/services/new' },
+      { label: 'Seguimiento',    path: '/seguimiento' },
       { label: 'No coordinados', path: '/services?status=uncoordinated' },
     ],
   },
   {
-    label: 'Seguimiento', icon: '◎', path: '/seguimiento',
-    badge: 'back',
-  },
-  {
     label: 'Proveedores', icon: '◉', path: '/providers',
     sub: [
-      { label: 'Lista', path: '/providers' },
-      { label: 'Asignaciones', path: '/providers/assignments' },
+      { label: 'Lista',    path: '/providers' },
     ],
   },
   { label: 'Clientes',      icon: '◈', path: '/clients' },
@@ -42,10 +38,13 @@ export default function Sidebar() {
   const location = useLocation()
   const logout = useAuthStore(s => s.logout)
   const user   = useAuthStore(s => s.user)
-  const [collapsed, setCollapsed]   = useState(false)
-  const [openMenus, setOpenMenus]   = useState<Record<string, boolean>>({ Servicios: true, Admin: false })
+  const [collapsed, setCollapsed] = useState(false)
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
+    Servicios: true, Proveedores: false, Admin: false,
+  })
 
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/')
+  const isActive = (path: string) =>
+    location.pathname === path || (path !== '/services' && location.pathname.startsWith(path + '/'))
 
   const toggle = (label: string) => setOpenMenus(p => ({ ...p, [label]: !p[label] }))
 
@@ -69,13 +68,9 @@ export default function Sidebar() {
         {NAV.map(item => (
           <div key={item.label}>
             <div
-              onClick={() => {
-                if (item.sub) toggle(item.label)
-                else navigate(item.path)
-              }}
+              onClick={() => { if (item.sub) toggle(item.label); else navigate(item.path) }}
               style={{
-                display: 'flex', alignItems: 'center', gap: 9,
-                padding: '8px 14px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 9, padding: '8px 14px', cursor: 'pointer',
                 color: isActive(item.path) ? '#fff' : 'rgba(255,255,255,.65)',
                 background: isActive(item.path) && !item.sub ? 'rgba(0,169,224,.15)' : 'transparent',
                 borderLeft: `3px solid ${isActive(item.path) && !item.sub ? '#00A9E0' : 'transparent'}`,
@@ -85,11 +80,6 @@ export default function Sidebar() {
               {!collapsed && (
                 <>
                   <span style={{ flex: 1, whiteSpace: 'nowrap' }}>{item.label}</span>
-                  {item.badge && (
-                    <span style={{ fontSize: 9, fontWeight: 700, background: '#00A9E0', color: '#fff', padding: '1px 5px', borderRadius: 99 }}>
-                      {item.badge}
-                    </span>
-                  )}
                   {item.sub && (
                     <span style={{ fontSize: 10, color: 'rgba(255,255,255,.3)' }}>
                       {openMenus[item.label] ? '▾' : '▸'}
@@ -107,6 +97,7 @@ export default function Sidebar() {
                     style={{
                       fontSize: 12, padding: '5px 10px', borderRadius: 5, cursor: 'pointer',
                       color: location.pathname === sub.path ? '#00A9E0' : 'rgba(255,255,255,.45)',
+                      fontWeight: location.pathname === sub.path ? 700 : 400,
                     }}>
                     {sub.label}
                   </div>
