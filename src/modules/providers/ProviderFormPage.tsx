@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useCreateProvider, useUpdateProvider, useProvider, PROVIDER_TYPES } from './useProviders'
+import { useCreateProvider, useUpdateProvider, useDeleteProvider, useProvider, PROVIDER_TYPES } from './useProviders'
 
 export default function ProviderFormPage() {
   const navigate = useNavigate()
@@ -10,6 +10,7 @@ export default function ProviderFormPage() {
   const { data } = useProvider(id ?? '')
   const { mutate: create, isPending: creating } = useCreateProvider()
   const { mutate: update, isPending: updating } = useUpdateProvider()
+  const { mutate: deleteProvider, isPending: deleting } = useDeleteProvider()
 
   const [form, setForm] = useState({ name: '', whatsapp: '', type: '', zones: '' })
   const [error, setError] = useState('')
@@ -33,7 +34,6 @@ export default function ProviderFormPage() {
       type:          form.type,
       coverageZones: form.zones.split(',').map(z => z.trim()).filter(Boolean),
     }
-
     if (isEdit) {
       update({ id, ...payload }, {
         onSuccess: () => navigate(`/providers/${id}`),
@@ -47,10 +47,16 @@ export default function ProviderFormPage() {
     }
   }
 
+  const handleDelete = () => {
+    if (!confirm(`¿Eliminar a "${form.name}"? Esta acción no se puede deshacer.`)) return
+    deleteProvider(id!, { onSuccess: () => navigate('/providers') })
+  }
+
   return (
     <div style={{ padding: '24px 28px', maxWidth: 640 }}>
-      <button onClick={() => navigate('/providers')} style={{ background: 'none', border: 'none', color: '#00A9E0', cursor: 'pointer', fontSize: 13, padding: 0, marginBottom: 12 }}>
-        ← Volver a proveedores
+      <button onClick={() => navigate(isEdit ? `/providers/${id}` : '/providers')}
+        style={{ background: 'none', border: 'none', color: '#00A9E0', cursor: 'pointer', fontSize: 13, padding: 0, marginBottom: 12 }}>
+        ← {isEdit ? 'Volver al proveedor' : 'Volver a proveedores'}
       </button>
       <h1 style={{ margin: '0 0 4px', fontSize: '1.25rem', fontWeight: 700, color: '#0A1F44', borderBottom: '3px solid #00A9E0', display: 'inline-block', paddingBottom: 5 }}>
         {isEdit ? 'Editar proveedor' : 'Nuevo proveedor'}
@@ -98,15 +104,23 @@ export default function ProviderFormPage() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button type="submit" disabled={creating || updating}
             style={{ padding: '10px 28px', background: '#00A9E0', color: '#fff', border: 'none', borderRadius: 7, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
             {(creating || updating) ? 'Guardando...' : (isEdit ? 'Guardar cambios' : 'Crear proveedor')}
           </button>
-          <button type="button" onClick={() => navigate('/providers')}
+          <button type="button" onClick={() => navigate(isEdit ? `/providers/${id}` : '/providers')}
             style={{ padding: '10px 20px', background: 'transparent', border: '1.5px solid #dde3ef', borderRadius: 7, fontSize: 14, cursor: 'pointer', color: '#607090' }}>
             Cancelar
           </button>
+
+          {/* Botón eliminar — solo en modo edición */}
+          {isEdit && (
+            <button type="button" onClick={handleDelete} disabled={deleting}
+              style={{ marginLeft: 'auto', padding: '10px 20px', background: 'transparent', color: '#dc2626', border: '1.5px solid #dc2626', borderRadius: 7, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              {deleting ? 'Eliminando...' : '🗑 Eliminar proveedor'}
+            </button>
+          )}
         </div>
       </form>
     </div>
@@ -135,4 +149,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-const inp: React.CSSProperties = { padding: '8px 10px', border: '1.5px solid #dde3ef', borderRadius: 6, fontSize: 13, color: '#0A1F44', background: '#fff', outline: 'none', width: '100%', boxSizing: 'border-box' }
+const inp: React.CSSProperties = {
+  padding: '8px 10px', border: '1.5px solid #dde3ef', borderRadius: 6,
+  fontSize: 13, color: '#0A1F44', background: '#fff', outline: 'none', width: '100%', boxSizing: 'border-box',
+}
