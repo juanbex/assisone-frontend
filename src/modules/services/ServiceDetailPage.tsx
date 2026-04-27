@@ -2,19 +2,24 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useService, useUpdateServiceStatus } from './useServices'
 import { useState, useEffect } from 'react'
 
+const ETA_BUFFER = 0.20
+
 const STATUS_LABELS: Record<string, string> = {
-  received: 'Recibido', in_coordination: 'En coordinación', uncoordinated: 'No coordinado',
-  coordinated: 'Coordinado', assigned: 'Asignado', in_progress: 'En seguimiento',
-  in_service: 'En prestación', completed: 'Finalizado', cancelled: 'Cancelado',
+  received:        'Recibido',
+  in_coordination: 'En coordinación',
+  uncoordinated:   'No coordinado',
+  coordinated:     'Coordinado',
+  in_service:      'En prestación',
+  completed:       'Finalizado',
+  cancelled:       'Cancelado',
 }
 
+// Solo el agente puede mover manualmente si el automático falla
 const STATUS_FLOW: Record<string, string[]> = {
   received:        ['in_coordination', 'cancelled'],
   in_coordination: ['coordinated', 'uncoordinated', 'cancelled'],
   uncoordinated:   ['coordinated', 'cancelled'],
-  coordinated:     ['assigned', 'cancelled'],
-  assigned:        ['in_progress', 'cancelled'],
-  in_progress:     ['in_service', 'completed', 'cancelled'],
+  coordinated:     ['in_service', 'cancelled'],
   in_service:      ['completed', 'cancelled'],
 }
 
@@ -23,8 +28,6 @@ const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
   in_coordination: { bg: '#fef3c7', color: '#92400e' },
   uncoordinated:   { bg: '#fee2e2', color: '#991b1b' },
   coordinated:     { bg: '#d1fae5', color: '#065f46' },
-  assigned:        { bg: '#e0f6fd', color: '#0088b8' },
-  in_progress:     { bg: '#ede9fe', color: '#4c1d95' },
   in_service:      { bg: '#fce7f3', color: '#9d174d' },
   completed:       { bg: '#f0fdf4', color: '#14532d' },
   cancelled:       { bg: '#f1f5f9', color: '#475569' },
@@ -37,16 +40,16 @@ const ASSIGNMENT_BADGE: Record<string, { bg: string; color: string; label: strin
   cancelled: { bg: '#f1f5f9', color: '#475569', label: 'Cancelado' },
 }
 
-// Countdown en tiempo real
-function EtaCountdown({ respondedAt, etaMinutes }: { respondedAt: string; etaMinutes: number }) {
+function EtaCountdown({ respondedAt, providerMinutes }: { respondedAt: string; providerMinutes: number }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [])
 
+  const clientMinutes = Math.ceil(providerMinutes * (1 + ETA_BUFFER))
+  const totalMs   = clientMinutes * 60 * 1000
   const startMs   = new Date(respondedAt).getTime()
-  const totalMs   = etaMinutes * 60 * 1000
   const elapsed   = now - startMs
   const remainMs  = Math.max(0, totalMs - elapsed)
   const pct       = Math.min(100, (elapsed / totalMs) * 100)
@@ -60,9 +63,11 @@ function EtaCountdown({ respondedAt, etaMinutes }: { respondedAt: string; etaMin
   return (
     <div style={{ marginTop: 12, background: isExpired ? '#fee2e2' : isAlert ? '#fef3c7' : '#f0fdf4', borderRadius: 8, padding: '10px 14px', border: `1px solid ${barColor}30` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#607090' }}>⏱ ETA prometido: {etaMinutes} min</span>
+        <span style={{ fontSize: 12, color: '#607090' }}>
+          Proveedor: <strong>{providerMinutes} min</strong> · Cliente: <strong>{clientMinutes} min</strong> (+{ETA_BUFFER * 100}%)
+        </span>
         <span style={{ fontSize: 14, fontWeight: 700, color: barColor }}>
-          {isExpired ? '🚨 TIEMPO VENCIDO' : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} restantes`}
+          {isExpired ? '🚨 VENCIDO' : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} restantes`}
         </span>
       </div>
       <div style={{ background: '#e5e7eb', borderRadius: 99, height: 6, overflow: 'hidden' }}>
@@ -70,12 +75,12 @@ function EtaCountdown({ respondedAt, etaMinutes }: { respondedAt: string; etaMin
       </div>
       {isAlert && !isExpired && (
         <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: '#d97706' }}>
-          ⚠️ Menos del 20% del tiempo restante — verificar con el proveedor
+          ⚠️ ≤20% restante — verificación al cliente en camino
         </div>
       )}
       {isExpired && (
         <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: '#dc2626' }}>
-          🚨 El proveedor debería haber llegado. Contactar inmediatamente.
+          🚨 Tiempo vencido — contactar al proveedor inmediatamente
         </div>
       )}
     </div>
@@ -91,7 +96,7 @@ export default function ServiceDetailPage() {
   const [showStatusChange, setShowStatusChange] = useState(false)
   const [nextStatus, setNextStatus] = useState('')
 
-  if (isLoading) return <div style={pageWrap}><p style={{ color: '#607090' }}>Cargando servicio...</p></div>
+  if (isLoading) return <div style={pageWrap}><p style={{ color: '#607090' }}>Cargando...</p></div>
   if (isError || !data?.data) return <div style={pageWrap}><p style={{ color: '#dc2626' }}>Servicio no encontrado</p></div>
 
   const s = data.data
@@ -126,7 +131,7 @@ export default function ServiceDetailPage() {
             </span>
             {hasEta && (
               <span style={{ ...badgeStyle, background: '#e0f6fd', color: '#0088b8' }}>
-                ⏱ ETA: {acceptedAssignment.etaMinutes} min
+                ⏱ Prov: {acceptedAssignment.etaMinutes}min · Cliente: {Math.ceil(acceptedAssignment.etaMinutes * (1 + ETA_BUFFER))}min
               </span>
             )}
           </div>
@@ -142,15 +147,20 @@ export default function ServiceDetailPage() {
         )}
       </div>
 
-      {/* ETA Countdown — visible directamente en el detalle */}
+      {/* ETA Countdown */}
       {hasEta && (
-        <EtaCountdown respondedAt={acceptedAssignment.respondedAt} etaMinutes={acceptedAssignment.etaMinutes} />
+        <EtaCountdown respondedAt={acceptedAssignment.respondedAt} providerMinutes={acceptedAssignment.etaMinutes} />
       )}
 
-      {/* Status change panel */}
+      {/* Status change */}
       {showStatusChange && (
         <div style={{ background: '#fff', border: '1.5px solid #00A9E0', borderRadius: 10, padding: '16px 20px', marginTop: 16, marginBottom: 8 }}>
-          <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: '#0A1F44' }}>Nuevo estado</p>
+          <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: '#0A1F44' }}>
+            Cambio manual de estado
+          </p>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: '#607090' }}>
+            Los estados cambian automáticamente vía WhatsApp. Usa esto solo si hay un problema técnico.
+          </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
             {nextStates.map(st => (
               <button key={st} onClick={() => setNextStatus(st)} style={{
@@ -163,7 +173,7 @@ export default function ServiceDetailPage() {
               </button>
             ))}
           </div>
-          <textarea placeholder="Notas (opcional)..." value={statusNotes} onChange={e => setStatusNotes(e.target.value)} rows={2}
+          <textarea placeholder="Motivo del cambio manual..." value={statusNotes} onChange={e => setStatusNotes(e.target.value)} rows={2}
             style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #dde3ef', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'Inter, system-ui, sans-serif' }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <button onClick={handleStatusChange} disabled={!nextStatus || isPending}
@@ -205,15 +215,14 @@ export default function ServiceDetailPage() {
         <InfoCard title="Agentes">
           <Row label="Front" value={s.frontAgent?.name ?? '—'} />
           <Row label="Back"  value={s.backAgent?.name ?? '—'} />
-          {hasEta && <Row label="⏱ ETA proveedor" value={`${acceptedAssignment.etaMinutes} minutos`} />}
-          {s.assignedAt  && <Row label="Asignado"   value={new Date(s.assignedAt).toLocaleString('es-CO')} />}
+          {hasEta && <Row label="ETA proveedor" value={`${acceptedAssignment.etaMinutes} min (cliente: ${Math.ceil(acceptedAssignment.etaMinutes * 1.2)} min)`} />}
           {s.completedAt && <Row label="Finalizado" value={new Date(s.completedAt).toLocaleString('es-CO')} />}
         </InfoCard>
       </div>
 
       {/* Timeline */}
       {s.events && s.events.length > 0 && (
-        <SectionCard title="Timeline del servicio">
+        <SectionCard title="Timeline">
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {s.events.map((ev: any, i: number) => (
               <div key={ev.id} style={{ display: 'flex', gap: 12, paddingBottom: 16 }}>
@@ -230,9 +239,12 @@ export default function ServiceDetailPage() {
                   {ev.payload?.providersContacted !== undefined && (
                     <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>{ev.payload.providersContacted} proveedor(es) contactado(s)</div>
                   )}
-                  {ev.payload?.etaMinutes && (
-                    <div style={{ fontSize: 12, color: '#0088b8', marginTop: 2 }}>⏱ ETA: {ev.payload.etaMinutes} minutos</div>
+                  {ev.payload?.providerMinutes && (
+                    <div style={{ fontSize: 12, color: '#0088b8', marginTop: 2 }}>
+                      Proveedor: {ev.payload.providerMinutes}min → Cliente: {ev.payload.clientMinutes}min (+{ev.payload.bufferPct}%)
+                    </div>
                   )}
+                  {ev.payload?.alert && <div style={{ fontSize: 12, color: '#dc2626', fontWeight: 600, marginTop: 2 }}>🚨 {ev.payload.alert}</div>}
                   <div style={{ fontSize: 11, color: '#adb5c7', marginTop: 2 }}>{new Date(ev.createdAt).toLocaleString('es-CO')}</div>
                 </div>
               </div>
@@ -252,7 +264,7 @@ export default function ServiceDetailPage() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#0A1F44' }}>{a.provider.name}</div>
                   <div style={{ fontSize: 11, color: '#607090', marginTop: 2 }}>
                     {a.provider.whatsapp} · {a.provider.type}
-                    {a.etaMinutes && <span style={{ marginLeft: 8, color: '#0088b8', fontWeight: 600 }}>⏱ {a.etaMinutes} min</span>}
+                    {a.etaMinutes && <span style={{ marginLeft: 8, color: '#0088b8', fontWeight: 600 }}>⏱ Prometió: {a.etaMinutes} min</span>}
                   </div>
                 </div>
                 <span style={{ padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: ab.bg, color: ab.color, border: `1px solid ${ab.color}30` }}>
@@ -261,20 +273,6 @@ export default function ServiceDetailPage() {
               </div>
             )
           })}
-        </SectionCard>
-      )}
-
-      {/* Evidences */}
-      {s.evidences && s.evidences.length > 0 && (
-        <SectionCard title={`Evidencias (${s.evidences.length})`}>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {s.evidences.map((ev: any) => (
-              <a key={ev.id} href={ev.s3Url} target="_blank" rel="noopener noreferrer"
-                style={{ width: 80, height: 80, background: '#f1f5f9', borderRadius: 8, border: '1px solid #dde3ef', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#607090' }}>
-                foto
-              </a>
-            ))}
-          </div>
         </SectionCard>
       )}
     </div>
