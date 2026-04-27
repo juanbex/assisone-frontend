@@ -41,8 +41,9 @@ export function useService(id: string) {
   return useQuery<{ data: Service }>({
     queryKey: ['service', id],
     queryFn: async () => { const { data } = await api.get(`/api/services/${id}`); return data },
-    enabled:         !!id,
-    refetchInterval: 15_000, // ← refetch cada 15s para ver ETA y cambios de estado
+    enabled: !!id,
+    refetchInterval: 5_000, // ← cada 5 segundos para ver ETA en tiempo real
+    staleTime: 0,            // ← siempre considerar datos desactualizados
   })
 }
 
@@ -57,7 +58,10 @@ export function useCreateService() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (body: any) => { const { data } = await api.post('/api/services', body); return data },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['services'] }); qc.invalidateQueries({ queryKey: ['services-stats'] }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['services'] })
+      qc.invalidateQueries({ queryKey: ['services-stats'] })
+    },
   })
 }
 
