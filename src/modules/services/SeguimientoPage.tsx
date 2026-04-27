@@ -4,14 +4,16 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../shared/api/client'
 
 const STATUS_LABELS: Record<string, string> = {
-  coordinated: 'Coordinado', assigned: 'Asignado', in_progress: 'En seguimiento',
+  coordinated: 'Coordinado',
+  in_service:  'En prestación',
 }
 
 const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
   coordinated: { bg: '#d1fae5', color: '#065f46' },
-  assigned:    { bg: '#e0f6fd', color: '#0088b8' },
-  in_progress: { bg: '#ede9fe', color: '#4c1d95' },
+  in_service:  { bg: '#fce7f3', color: '#9d174d' },
 }
+
+const ETA_BUFFER = 0.20 // 20%
 
 function useTracking() {
   return useQuery({
@@ -30,50 +32,44 @@ function useNow() {
   return now
 }
 
-function EtaTimer({ respondedAt, etaMinutes }: { respondedAt: string; etaMinutes: number }) {
+function EtaTimer({ respondedAt, providerMinutes }: { respondedAt: string; providerMinutes: number }) {
   const now = useNow()
-  const startMs    = new Date(respondedAt).getTime()
-  const totalMs    = etaMinutes * 60 * 1000
-  const elapsedMs  = now - startMs
-  const remainMs   = Math.max(0, totalMs - elapsedMs)
-  const pct        = Math.min(100, (elapsedMs / totalMs) * 100)
-  const isAlert    = pct >= 80   // ≤20% tiempo restante
-  const isExpired  = remainMs === 0
+
+  // El tiempo que se le prometió al cliente (con buffer 20%)
+  const clientMinutes = Math.ceil(providerMinutes * (1 + ETA_BUFFER))
+  const totalMs       = clientMinutes * 60 * 1000
+  const startMs       = new Date(respondedAt).getTime()
+  const elapsedMs     = now - startMs
+  const remainMs      = Math.max(0, totalMs - elapsedMs)
+  const pct           = Math.min(100, (elapsedMs / totalMs) * 100)
+  const isAlert       = pct >= 80  // queda ≤ 20%
+  const isExpired     = remainMs === 0
 
   const mins = Math.floor(remainMs / 60000)
   const secs = Math.floor((remainMs % 60000) / 1000)
-
   const barColor = isExpired ? '#dc2626' : isAlert ? '#d97706' : '#059669'
 
   return (
-    <div style={{ marginTop: 8 }}>
+    <div style={{ marginTop: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#607090' }}>
-          ⏱ ETA prometido: {etaMinutes} min
+        <span style={{ fontSize: 11, color: '#607090' }}>
+          Proveedor prometió: <strong>{providerMinutes} min</strong> · Cliente espera: <strong>{clientMinutes} min</strong>
         </span>
-        <span style={{
-          fontSize: 13, fontWeight: 700,
-          color: isExpired ? '#dc2626' : isAlert ? '#d97706' : '#059669',
-        }}>
-          {isExpired ? '⚠️ VENCIDO' : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} restantes`}
+        <span style={{ fontSize: 13, fontWeight: 700, color: barColor }}>
+          {isExpired ? '🚨 VENCIDO' : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} restantes`}
         </span>
       </div>
       <div style={{ background: '#e5e7eb', borderRadius: 99, height: 6, overflow: 'hidden' }}>
-        <div style={{
-          height: '100%', borderRadius: 99,
-          width: `${pct}%`,
-          background: barColor,
-          transition: 'width 1s linear, background .3s',
-        }} />
+        <div style={{ height: '100%', borderRadius: 99, width: `${pct}%`, background: barColor, transition: 'width 1s linear' }} />
       </div>
       {isAlert && !isExpired && (
-        <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: '#d97706', background: '#fef3c7', padding: '4px 8px', borderRadius: 6, display: 'inline-block' }}>
-          ⚠️ Menos del 20% del tiempo restante — seguimiento requerido
+        <div style={{ marginTop: 5, fontSize: 11, fontWeight: 700, color: '#d97706', background: '#fef3c7', padding: '3px 8px', borderRadius: 5, display: 'inline-block' }}>
+          ⚠️ Queda ≤20% — se enviará verificación al cliente pronto
         </div>
       )}
       {isExpired && (
-        <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '4px 8px', borderRadius: 6, display: 'inline-block' }}>
-          🚨 Tiempo prometido vencido — contactar al proveedor
+        <div style={{ marginTop: 5, fontSize: 11, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '3px 8px', borderRadius: 5, display: 'inline-block' }}>
+          🚨 Tiempo vencido — verificar con el proveedor
         </div>
       )}
     </div>
@@ -85,17 +81,17 @@ export default function SeguimientoPage() {
   const { data, isLoading } = useTracking()
   const services = data?.data ?? []
 
-  const alerts  = services.filter((s: any) => {
+  const now = Date.now()
+  const alerts = services.filter((s: any) => {
     const a = s.acceptedAssignment
     if (!a?.etaMinutes || !a?.respondedAt) return false
-    const elapsed = Date.now() - new Date(a.respondedAt).getTime()
-    const total   = a.etaMinutes * 60 * 1000
-    return elapsed / total >= 0.8
+    const clientMinutes = Math.ceil(a.etaMinutes * (1 + ETA_BUFFER))
+    const elapsed = now - new Date(a.respondedAt).getTime()
+    return elapsed / (clientMinutes * 60 * 1000) >= 0.8
   })
 
   return (
     <div style={{ padding: '24px 28px' }}>
-      {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0A1F44', borderBottom: '3px solid #00A9E0', display: 'inline-block', paddingBottom: 6 }}>
           Dashboard de seguimiento
@@ -111,24 +107,23 @@ export default function SeguimientoPage() {
           <span style={{ fontSize: 20 }}>⚠️</span>
           <div>
             <div style={{ fontWeight: 700, color: '#92400e', fontSize: 14 }}>
-              {alerts.length} servicio{alerts.length > 1 ? 's' : ''} requiere{alerts.length === 1 ? '' : 'n'} atención inmediata
+              {alerts.length} servicio{alerts.length > 1 ? 's' : ''} requiere{alerts.length === 1 ? '' : 'n'} atención
             </div>
-            <div style={{ fontSize: 12, color: '#b45309' }}>Tiempo prometido próximo a vencer o ya vencido</div>
+            <div style={{ fontSize: 12, color: '#b45309' }}>Se enviará verificación al cliente · Tiempo prometido próximo a vencer</div>
           </div>
         </div>
       )}
 
-      {/* Stats rápidas */}
+      {/* Stats */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         {[
-          { label: 'Total en seguimiento', value: services.length, color: '#0A1F44' },
-          { label: 'Coordinados',  value: services.filter((s: any) => s.status === 'coordinated').length,  color: '#059669' },
-          { label: 'Asignados',    value: services.filter((s: any) => s.status === 'assigned').length,     color: '#0088b8' },
-          { label: 'En progreso',  value: services.filter((s: any) => s.status === 'in_progress').length,  color: '#7c3aed' },
-          { label: '⚠️ Alertas',   value: alerts.length,                                                   color: '#d97706' },
+          { label: 'Total en seguimiento', value: services.length,                                                        color: '#0A1F44' },
+          { label: 'Coordinados',          value: services.filter((s: any) => s.status === 'coordinated').length,        color: '#059669' },
+          { label: 'En prestación',        value: services.filter((s: any) => s.status === 'in_service').length,         color: '#9d174d' },
+          { label: '⚠️ Alertas',           value: alerts.length,                                                          color: '#d97706' },
         ].map(c => (
           <div key={c.label} style={{ background: '#fff', border: '1px solid #dde3ef', borderRadius: 10, padding: '10px 18px', boxShadow: '0 1px 3px rgba(10,31,68,.06)' }}>
-            <div style={{ fontSize: 11, color: '#607090', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 3 }}>{c.label}</div>
+            <div style={{ fontSize: 10, color: '#607090', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 3 }}>{c.label}</div>
             <div style={{ fontSize: 24, fontWeight: 700, color: c.color }}>{c.value}</div>
           </div>
         ))}
@@ -136,7 +131,6 @@ export default function SeguimientoPage() {
 
       {/* Bandeja */}
       {isLoading && <p style={{ color: '#607090' }}>Cargando servicios...</p>}
-
       {!isLoading && services.length === 0 && (
         <div style={{ textAlign: 'center', padding: '3rem', background: '#fff', borderRadius: 12, border: '1px dashed #dde3ef', color: '#607090', fontSize: 14 }}>
           No hay servicios en seguimiento en este momento
@@ -148,65 +142,50 @@ export default function SeguimientoPage() {
           const a = s.acceptedAssignment
           const badge = STATUS_BADGE[s.status] ?? { bg: '#f1f5f9', color: '#475569' }
           const hasEta = a?.etaMinutes && a?.respondedAt
-          const elapsed = hasEta ? (Date.now() - new Date(a.respondedAt).getTime()) / (a.etaMinutes * 60 * 1000) : 0
+          const clientMinutes = hasEta ? Math.ceil(a.etaMinutes * (1 + ETA_BUFFER)) : 0
+          const elapsed = hasEta ? (now - new Date(a.respondedAt).getTime()) / (clientMinutes * 60 * 1000) : 0
           const isAlert = elapsed >= 0.8
 
           return (
-            <div key={s.id}
-              onClick={() => navigate(`/services/${s.id}`)}
+            <div key={s.id} onClick={() => navigate(`/services/${s.id}`)}
               style={{
                 background: '#fff',
                 border: `1.5px solid ${isAlert ? '#d97706' : '#dde3ef'}`,
-                borderRadius: 12,
-                padding: '16px 20px',
-                cursor: 'pointer',
+                borderRadius: 12, padding: '16px 20px', cursor: 'pointer',
                 boxShadow: isAlert ? '0 0 0 3px #fef3c720' : '0 1px 3px rgba(10,31,68,.06)',
-                transition: '.15s',
               }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                {/* Left */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, color: '#00A9E0', fontFamily: 'monospace', fontSize: 13 }}>
                       #{s.id.slice(0, 8).toUpperCase()}
                     </span>
                     <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: badge.bg, color: badge.color }}>
                       {STATUS_LABELS[s.status]}
                     </span>
-                    {isAlert && (
-                      <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#92400e' }}>
-                        ⚠️ ALERTA
-                      </span>
-                    )}
+                    {isAlert && <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#92400e' }}>⚠️ ALERTA</span>}
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#0A1F44' }}>{s.client.name}</div>
                   <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>
                     {s.serviceType.name} · {s.location?.address ?? '—'}
                   </div>
                 </div>
-                {/* Right */}
                 <div style={{ textAlign: 'right' }}>
-                  {a && (
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0A1F44' }}>{a.provider.name}</div>
-                  )}
-                  <div style={{ fontSize: 11, color: '#607090' }}>
-                    Agente back: {s.backAgent?.name ?? '—'}
-                  </div>
+                  {a && <div style={{ fontSize: 12, fontWeight: 600, color: '#0A1F44' }}>{a.provider.name}</div>}
                   <div style={{ fontSize: 11, color: '#adb5c7', marginTop: 2 }}>
                     {new Date(s.createdAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               </div>
 
-              {/* ETA Timer */}
-              {hasEta && (
-                <EtaTimer respondedAt={a.respondedAt} etaMinutes={a.etaMinutes} />
-              )}
-              {!hasEta && a && (
-                <div style={{ marginTop: 8, fontSize: 12, color: '#adb5c7', fontStyle: 'italic' }}>
-                  Esperando confirmación de tiempo estimado del proveedor...
-                </div>
-              )}
+              {hasEta
+                ? <EtaTimer respondedAt={a.respondedAt} providerMinutes={a.etaMinutes} />
+                : a && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#adb5c7', fontStyle: 'italic' }}>
+                    Esperando tiempo estimado del proveedor...
+                  </div>
+                )
+              }
             </div>
           )
         })}
