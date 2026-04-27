@@ -14,7 +14,6 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled:       'Cancelado',
 }
 
-// Solo el agente puede mover manualmente si el automático falla
 const STATUS_FLOW: Record<string, string[]> = {
   received:        ['in_coordination', 'cancelled'],
   in_coordination: ['coordinated', 'uncoordinated', 'cancelled'],
@@ -61,28 +60,28 @@ function EtaCountdown({ respondedAt, providerMinutes }: { respondedAt: string; p
   const barColor = isExpired ? '#dc2626' : isAlert ? '#d97706' : '#059669'
 
   return (
-    <div style={{ marginTop: 12, background: isExpired ? '#fee2e2' : isAlert ? '#fef3c7' : '#f0fdf4', borderRadius: 8, padding: '10px 14px', border: `1px solid ${barColor}30` }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <span style={{ fontSize: 12, color: '#607090' }}>
-          Proveedor: <strong>{providerMinutes} min</strong> · Cliente: <strong>{clientMinutes} min</strong> (+{ETA_BUFFER * 100}%)
-        </span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: barColor }}>
-          {isExpired ? '🚨 VENCIDO' : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} restantes`}
+    <div style={{ marginTop: 12, background: isExpired ? '#fee2e2' : isAlert ? '#fef3c7' : '#f0fdf4', borderRadius: 8, padding: '12px 16px', border: `1.5px solid ${barColor}40` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#0A1F44' }}>⏱ Tiempo prometido</span>
+          <span style={{ fontSize: 11, color: '#607090', marginLeft: 8 }}>
+            Proveedor: <strong>{providerMinutes} min</strong> → Cliente: <strong>{clientMinutes} min</strong> (+{ETA_BUFFER * 100}% buffer)
+          </span>
+        </div>
+        <span style={{ fontSize: 15, fontWeight: 700, color: barColor, fontFamily: 'monospace' }}>
+          {isExpired ? '🚨 VENCIDO' : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`}
         </span>
       </div>
-      <div style={{ background: '#e5e7eb', borderRadius: 99, height: 6, overflow: 'hidden' }}>
+      <div style={{ background: '#e5e7eb', borderRadius: 99, height: 8, overflow: 'hidden' }}>
         <div style={{ height: '100%', borderRadius: 99, width: `${pct}%`, background: barColor, transition: 'width 1s linear' }} />
       </div>
-      {isAlert && !isExpired && (
-        <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: '#d97706' }}>
-          ⚠️ ≤20% restante — verificación al cliente en camino
-        </div>
-      )}
-      {isExpired && (
-        <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: '#dc2626' }}>
-          🚨 Tiempo vencido — contactar al proveedor inmediatamente
-        </div>
-      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: '#adb5c7' }}>
+        <span>Inicio</span>
+        <span style={{ color: barColor, fontWeight: 600 }}>
+          {isExpired ? '🚨 Contactar al proveedor' : isAlert ? '⚠️ ≤20% restante — verificación al cliente en camino' : `${Math.round(100 - pct)}% restante`}
+        </span>
+        <span>{clientMinutes} min</span>
+      </div>
     </div>
   )
 }
@@ -90,7 +89,7 @@ function EtaCountdown({ respondedAt, providerMinutes }: { respondedAt: string; p
 export default function ServiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { data, isLoading, isError } = useService(id!)
+  const { data, isLoading, isError, refetch, isFetching } = useService(id!)
   const { mutate: updateStatus, isPending } = useUpdateServiceStatus()
   const [statusNotes, setStatusNotes] = useState('')
   const [showStatusChange, setShowStatusChange] = useState(false)
@@ -105,7 +104,7 @@ export default function ServiceDetailPage() {
   const address = s.location?.address ?? ''
   const mapUrl = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : null
   const acceptedAssignment = s.assignments?.find((a: any) => a.status === 'accepted')
-  const hasEta = acceptedAssignment?.etaMinutes && acceptedAssignment?.respondedAt
+  const hasEta = !!(acceptedAssignment?.etaMinutes && acceptedAssignment?.respondedAt)
 
   const handleStatusChange = () => {
     if (!nextStatus) return
@@ -117,7 +116,7 @@ export default function ServiceDetailPage() {
   return (
     <div style={pageWrap}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <button onClick={() => navigate('/services')} style={{ background: 'none', border: 'none', color: '#00A9E0', cursor: 'pointer', fontSize: 13, padding: 0, marginBottom: 8 }}>
             ← Volver a bandeja
@@ -131,33 +130,49 @@ export default function ServiceDetailPage() {
             </span>
             {hasEta && (
               <span style={{ ...badgeStyle, background: '#e0f6fd', color: '#0088b8' }}>
-                ⏱ Prov: {acceptedAssignment.etaMinutes}min · Cliente: {Math.ceil(acceptedAssignment.etaMinutes * (1 + ETA_BUFFER))}min
+                ⏱ {acceptedAssignment.etaMinutes}min → {Math.ceil(acceptedAssignment.etaMinutes * 1.2)}min al cliente
               </span>
             )}
           </div>
           <p style={{ margin: '4px 0 0', fontSize: 12, color: '#607090' }}>
-            Creado {new Date(s.createdAt).toLocaleString('es-CO')} · {s.serviceType?.category?.name ?? '—'}
+            {new Date(s.createdAt).toLocaleString('es-CO')} · {s.serviceType?.category?.name ?? '—'}
           </p>
         </div>
-        {nextStates.length > 0 && (
-          <button onClick={() => setShowStatusChange(!showStatusChange)}
-            style={{ padding: '8px 18px', background: '#0A1F44', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            Cambiar estado
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Botón actualizar manual */}
+          <button onClick={() => refetch()} disabled={isFetching}
+            style={{ padding: '7px 14px', background: 'transparent', border: '1.5px solid #dde3ef', borderRadius: 6, fontSize: 12, color: isFetching ? '#adb5c7' : '#607090', cursor: 'pointer' }}>
+            {isFetching ? '⟳ Actualizando...' : '↻ Actualizar'}
           </button>
-        )}
+          {nextStates.length > 0 && (
+            <button onClick={() => setShowStatusChange(!showStatusChange)}
+              style={{ padding: '8px 18px', background: '#0A1F44', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              Cambiar estado
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* ETA Countdown */}
+      {/* ETA Countdown — visible cuando el proveedor da el tiempo */}
       {hasEta && (
-        <EtaCountdown respondedAt={acceptedAssignment.respondedAt} providerMinutes={acceptedAssignment.etaMinutes} />
+        <EtaCountdown
+          respondedAt={acceptedAssignment.respondedAt}
+          providerMinutes={acceptedAssignment.etaMinutes}
+        />
+      )}
+
+      {/* Aviso si está coordinado y esperando ETA */}
+      {s.status === 'coordinated' && !hasEta && (
+        <div style={{ background: '#fef9c3', border: '1px solid #d97706', borderRadius: 8, padding: '10px 14px', marginTop: 12, fontSize: 13, color: '#92400e' }}>
+          ⏳ Esperando que el proveedor confirme el tiempo de llegada por WhatsApp...
+          <span style={{ fontSize: 11, marginLeft: 8, color: '#b45309' }}>Se actualiza cada 5 segundos</span>
+        </div>
       )}
 
       {/* Status change */}
       {showStatusChange && (
         <div style={{ background: '#fff', border: '1.5px solid #00A9E0', borderRadius: 10, padding: '16px 20px', marginTop: 16, marginBottom: 8 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: '#0A1F44' }}>
-            Cambio manual de estado
-          </p>
+          <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#0A1F44' }}>Cambio manual de estado</p>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: '#607090' }}>
             Los estados cambian automáticamente vía WhatsApp. Usa esto solo si hay un problema técnico.
           </p>
@@ -215,7 +230,12 @@ export default function ServiceDetailPage() {
         <InfoCard title="Agentes">
           <Row label="Front" value={s.frontAgent?.name ?? '—'} />
           <Row label="Back"  value={s.backAgent?.name ?? '—'} />
-          {hasEta && <Row label="ETA proveedor" value={`${acceptedAssignment.etaMinutes} min (cliente: ${Math.ceil(acceptedAssignment.etaMinutes * 1.2)} min)`} />}
+          {hasEta && (
+            <>
+              <Row label="Prometido al proveedor" value={`${acceptedAssignment.etaMinutes} min`} />
+              <Row label="Prometido al cliente"   value={`${Math.ceil(acceptedAssignment.etaMinutes * 1.2)} min`} />
+            </>
+          )}
           {s.completedAt && <Row label="Finalizado" value={new Date(s.completedAt).toLocaleString('es-CO')} />}
         </InfoCard>
       </div>
@@ -234,8 +254,8 @@ export default function ServiceDetailPage() {
                   <div style={{ fontSize: 12, fontWeight: 600, color: '#0A1F44', textTransform: 'capitalize' }}>
                     {ev.eventType.replace(/_/g, ' ')}
                   </div>
-                  {ev.payload?.notes    && <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>{ev.payload.notes}</div>}
-                  {ev.payload?.reason   && <div style={{ fontSize: 12, color: '#dc2626', marginTop: 2 }}>{ev.payload.reason}</div>}
+                  {ev.payload?.notes && <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>{ev.payload.notes}</div>}
+                  {ev.payload?.reason && <div style={{ fontSize: 12, color: '#dc2626', marginTop: 2 }}>{ev.payload.reason}</div>}
                   {ev.payload?.providersContacted !== undefined && (
                     <div style={{ fontSize: 12, color: '#607090', marginTop: 2 }}>{ev.payload.providersContacted} proveedor(es) contactado(s)</div>
                   )}
